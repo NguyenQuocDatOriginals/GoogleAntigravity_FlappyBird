@@ -91,7 +91,7 @@ func _create_cap(y_pos: float) -> void:
 func _process(delta: float) -> void:
 	if is_moving:
 		position.x -= SPEED * delta
-		if position.x < -20.0:
+		if position.x < -80.0:
 			queue_free()
 
 

@@ -21,13 +21,17 @@ var score_label: Label = null
 var message_label: Label = null
 var game_over_container: VBoxContainer = null
 
+var score_panel: PanelContainer = null
+var message_panel: PanelContainer = null
+var game_over_panel: PanelContainer = null
+
 var _restart_cooldown: bool = false
 
 # Parallax background tracking: [{node, speed, wrap_width}]
 var _bg_elements: Array = []
 const BG_BASE_SPEED: float = 4.5
-const BG_LEFT_LIMIT: float = -20.0
-const BG_WRAP_WIDTH: float = 50.0
+const BG_LEFT_LIMIT: float = -60.0
+const BG_WRAP_WIDTH: float = 120.0
 
 
 func _ready() -> void:
@@ -38,7 +42,7 @@ func _ready() -> void:
 	_setup_ground()
 	_setup_bird()
 	_setup_pipes()
-	_setup_countryside()
+	_setup_background()
 	_setup_ui()
 	_show_ready_screen()
 
@@ -55,12 +59,12 @@ func _setup_sound() -> void:
 
 
 func _setup_environment() -> void:
-	# Warm Vietnamese countryside sky — golden hour feel
+	# Sky with White horizon transitioning to Blue
 	var sky_mat: ProceduralSkyMaterial = ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.40, 0.65, 0.90)
-	sky_mat.sky_horizon_color = Color(0.90, 0.78, 0.55)
-	sky_mat.ground_bottom_color = Color(0.30, 0.45, 0.18)
-	sky_mat.ground_horizon_color = Color(0.75, 0.70, 0.50)
+	sky_mat.sky_top_color = Color(0.15, 0.45, 0.85)    # Vibrant blue sky
+	sky_mat.sky_horizon_color = Color(1.0, 1.0, 1.0)   # White at horizon
+	sky_mat.ground_bottom_color = Color(0.65, 0.85, 0.15) # Keep banana green ground bottom
+	sky_mat.ground_horizon_color = Color(1.0, 1.0, 1.0) # White horizon on ground side too
 
 	var sky: Sky = Sky.new()
 	sky.sky_material = sky_mat
@@ -68,8 +72,8 @@ func _setup_environment() -> void:
 	var env: Environment = Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
-	env.ambient_light_color = Color(0.90, 0.85, 0.75)
-	env.ambient_light_energy = 0.55
+	env.ambient_light_color = Color(0.85, 0.90, 1.0)
+	env.ambient_light_energy = 0.8
 
 	var world_env: WorldEnvironment = WorldEnvironment.new()
 	world_env.environment = env
@@ -182,11 +186,16 @@ func _setup_pipes() -> void:
 	add_child(spawn_timer)
 
 
-func _setup_countryside() -> void:
-	_create_bamboo_groves()
-	_create_village_houses()
-	_create_clouds()
+func _setup_background() -> void:
+	# Sea removed as it conflicts with the Banana Green landscape
+	_create_bg_terrain()
+	_create_mountains()
+	_create_urban_area()
+	_create_flag()
 
+func _create_sea() -> void:
+	# No longer used to keep the background purely Banana Green
+	pass
 
 func _register_bg(node: Node3D, z_depth: float) -> void:
 	# Deeper Z = slower parallax. Speed factor: 0.15 (far) to 0.6 (near)
@@ -194,128 +203,143 @@ func _register_bg(node: Node3D, z_depth: float) -> void:
 	_bg_elements.append({"node": node, "speed": BG_BASE_SPEED * factor})
 
 
-func _create_bamboo_groves() -> void:
-	var bamboo_green: StandardMaterial3D = StandardMaterial3D.new()
-	bamboo_green.albedo_color = Color(0.28, 0.52, 0.18)
-	bamboo_green.roughness = 0.7
+func _create_mountains() -> void:
+	var mount_mat: StandardMaterial3D = StandardMaterial3D.new()
+	mount_mat.albedo_color = Color(0.05, 0.22, 0.05)
+	mount_mat.roughness = 1.0
 
-	var bamboo_dark: StandardMaterial3D = StandardMaterial3D.new()
-	bamboo_dark.albedo_color = Color(0.22, 0.42, 0.14)
-	bamboo_dark.roughness = 0.7
-
-	var leaf_mat: StandardMaterial3D = StandardMaterial3D.new()
-	leaf_mat.albedo_color = Color(0.30, 0.55, 0.15, 0.85)
-	leaf_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	leaf_mat.roughness = 0.8
-
-	var clusters: Array = [
-		Vector3(-8, 0, -5), Vector3(-4, 0, -7), Vector3(2, 0, -6),
-		Vector3(8, 0, -8), Vector3(14, 0, -5), Vector3(18, 0, -7),
-		Vector3(22, 0, -6), Vector3(-2, 0, -9), Vector3(11, 0, -9),
-		Vector3(25, 0, -5), Vector3(30, 0, -7), Vector3(35, 0, -6),
+	var positions: Array = [
+		Vector3(-45, 0, -35), Vector3(-15, 0, -38), Vector3(15, 0, -36),
+		Vector3(45, 0, -37), Vector3(75, 0, -36), Vector3(-75, 0, -35)
 	]
 
-	for cluster_pos: Vector3 in clusters:
-		# Group each cluster into a single Node3D for parallax
+	for pos: Vector3 in positions:
 		var group: Node3D = Node3D.new()
-		group.position = Vector3(cluster_pos.x, 0, cluster_pos.z)
-		add_child(group)
-		_register_bg(group, cluster_pos.z)
-
-		var stalks: int = randi_range(3, 6)
-		for j: int in range(stalks):
-			var stalk: MeshInstance3D = MeshInstance3D.new()
-			var cyl: CylinderMesh = CylinderMesh.new()
-			var h: float = randf_range(6.0, 12.0)
-			cyl.top_radius = randf_range(0.06, 0.10)
-			cyl.bottom_radius = randf_range(0.10, 0.16)
-			cyl.height = h
-			cyl.material = bamboo_green if j % 2 == 0 else bamboo_dark
-			stalk.mesh = cyl
-			stalk.position = Vector3(randf_range(-0.8, 0.8), h / 2.0, randf_range(-0.5, 0.5))
-			stalk.rotation_degrees.z = randf_range(-3.0, 3.0)
-			group.add_child(stalk)
-
-			var leaf: MeshInstance3D = MeshInstance3D.new()
-			var leaf_mesh: SphereMesh = SphereMesh.new()
-			leaf_mesh.radius = randf_range(0.5, 1.0)
-			leaf_mesh.height = randf_range(0.6, 1.0)
-			leaf_mesh.material = leaf_mat
-			leaf.mesh = leaf_mesh
-			leaf.position = Vector3(randf_range(-0.5, 0.5), h + randf_range(-0.3, 0.5), randf_range(-0.3, 0.3))
-			group.add_child(leaf)
-
-
-func _create_village_houses() -> void:
-	var wall_mat: StandardMaterial3D = StandardMaterial3D.new()
-	wall_mat.albedo_color = Color(0.85, 0.75, 0.55)
-	wall_mat.roughness = 0.9
-
-	var roof_mat: StandardMaterial3D = StandardMaterial3D.new()
-	roof_mat.albedo_color = Color(0.50, 0.28, 0.12)
-	roof_mat.roughness = 0.8
-
-	var red_wall: StandardMaterial3D = StandardMaterial3D.new()
-	red_wall.albedo_color = Color(0.72, 0.45, 0.25)
-	red_wall.roughness = 0.85
-
-	var house_positions: Array = [
-		Vector3(-5, 0, -10), Vector3(5, 0, -12),
-		Vector3(15, 0, -11), Vector3(23, 0, -10),
-		Vector3(33, 0, -11), Vector3(40, 0, -12),
-	]
-
-	for pos: Vector3 in house_positions:
-		var group: Node3D = Node3D.new()
-		group.position = Vector3(pos.x, 0, pos.z)
+		group.position = pos
 		add_child(group)
 		_register_bg(group, pos.z)
 
-		var w: float = randf_range(1.5, 2.5)
-		var h: float = randf_range(1.5, 2.2)
-		var d: float = randf_range(1.8, 2.8)
+		var mount: MeshInstance3D = MeshInstance3D.new()
+		var p_mesh: PrismMesh = PrismMesh.new()
+		p_mesh.size = Vector3(randf_range(15, 25), randf_range(8, 15), 10)
+		p_mesh.material = mount_mat
+		mount.mesh = p_mesh
+		mount.position.y = p_mesh.size.y / 2.0
+		group.add_child(mount)
 
-		# Walls
-		var walls: MeshInstance3D = MeshInstance3D.new()
-		var wall_mesh: BoxMesh = BoxMesh.new()
-		wall_mesh.size = Vector3(w, h, d)
-		wall_mesh.material = wall_mat if randi() % 2 == 0 else red_wall
-		walls.mesh = wall_mesh
-		walls.position.y = h / 2.0
-		group.add_child(walls)
+func _create_urban_area() -> void:
+	var bldg_mat: StandardMaterial3D = StandardMaterial3D.new()
+	bldg_mat.albedo_color = Color(0.4, 0.42, 0.45) # Concrete gray
+	bldg_mat.roughness = 0.8
 
-		# Roof
-		var roof: MeshInstance3D = MeshInstance3D.new()
-		var roof_mesh: PrismMesh = PrismMesh.new()
-		roof_mesh.size = Vector3(w + 0.4, 0.8, d + 0.4)
-		roof_mesh.material = roof_mat
-		roof.mesh = roof_mesh
-		roof.position.y = h + 0.4
-		group.add_child(roof)
+	var win_mat: StandardMaterial3D = StandardMaterial3D.new()
+	win_mat.albedo_color = Color(0.9, 0.95, 1.0) # Window light
+	win_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
+	var clusters: Array = [
+		Vector3(-45, 0, -25), Vector3(-15, 0, -28), Vector3(15, 0, -26),
+		Vector3(45, 0, -25), Vector3(75, 0, -28), Vector3(-75, 0, -26)
+	]
 
-func _create_clouds() -> void:
-	var cloud_mat: StandardMaterial3D = StandardMaterial3D.new()
-	cloud_mat.albedo_color = Color(1, 1, 1, 0.45)
-	cloud_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	cloud_mat.roughness = 1.0
+	for cluster_pos: Vector3 in clusters:
+		var group: Node3D = Node3D.new()
+		group.position = cluster_pos
+		add_child(group)
+		_register_bg(group, cluster_pos.z)
 
-	for i: int in range(8):
-		var cloud: MeshInstance3D = MeshInstance3D.new()
-		var s: SphereMesh = SphereMesh.new()
-		var r: float = randf_range(1.0, 2.8)
-		s.radius = r
-		s.height = r * 0.8
-		s.material = cloud_mat
-		cloud.mesh = s
-		var z: float = randf_range(-16.0, -8.0)
-		cloud.position = Vector3(
-			randf_range(-8.0, 35.0),
-			randf_range(11.0, 14.0),
-			z
-		)
-		add_child(cloud)
-		_register_bg(cloud, z)
+		var b_count: int = randi_range(2, 4)
+		for i: int in range(b_count):
+			var b: MeshInstance3D = MeshInstance3D.new()
+			var bm: BoxMesh = BoxMesh.new()
+			var w: float = randf_range(2.0, 3.5)
+			var h: float = randf_range(5.0, 12.0)
+			var d: float = randf_range(2.0, 3.5)
+			bm.size = Vector3(w, h, d)
+			bm.material = bldg_mat
+			b.mesh = bm
+			b.position = Vector3(i * 4.0 - (b_count * 2.0), h / 2.0, randf_range(-1, 1))
+			group.add_child(b)
+
+			# Optimized windows: instead of many small meshes, use a few "stripes"
+			# or just a couple of window blocks per side
+			var win_count: int = int(h / 3.0)
+			for j in range(win_count):
+				var win: MeshInstance3D = MeshInstance3D.new()
+				var wm: BoxMesh = BoxMesh.new()
+				wm.size = Vector3(w + 0.05, 0.6, d + 0.05)
+				wm.material = win_mat
+				win.mesh = wm
+				win.position.y = (j * 3.0) - (h / 2.0) + 2.0
+				b.add_child(win)
+
+func _create_bg_terrain() -> void:
+	# Banana green background ground – spans Z from -10 to -45
+	var grass_group: Node3D = Node3D.new()
+	grass_group.position = Vector3(0, -0.6, -25) # Centered
+	add_child(grass_group)
+	_register_bg(grass_group, -25)
+	
+	var g_mesh: MeshInstance3D = MeshInstance3D.new()
+	var g_box: BoxMesh = BoxMesh.new()
+	g_box.size = Vector3(400, 0.1, 40) # Large ground area
+	var g_mat: StandardMaterial3D = StandardMaterial3D.new()
+	g_mat.albedo_color = Color(0.65, 0.85, 0.15) # Banana Green (Vibrant yellowish green)
+	g_box.material = g_mat
+	g_mesh.mesh = g_box
+	grass_group.add_child(g_mesh)
+
+	# Multiple parallel asphalt roads
+	var road_depths: Array = [-12, -18, -22, -30]
+	for z_pos in road_depths:
+		var road_group: Node3D = Node3D.new()
+		road_group.position = Vector3(0, -0.55, z_pos)
+		add_child(road_group)
+		_register_bg(road_group, z_pos)
+		
+		var r_mesh: MeshInstance3D = MeshInstance3D.new()
+		var r_box: BoxMesh = BoxMesh.new()
+		r_box.size = Vector3(400, 0.05, randf_range(1.5, 3.0))
+		var r_mat: StandardMaterial3D = StandardMaterial3D.new()
+		r_mat.albedo_color = Color(0.12, 0.12, 0.15) # Dark asphalt
+		r_box.material = r_mat
+		r_mesh.mesh = r_box
+		road_group.add_child(r_mesh)
+
+func _create_flag() -> void:
+	var intervals: Array = [-40, -10, 20, 50, 80, -70]
+	for x_pos: float in intervals:
+		var flag_group: Node3D = Node3D.new()
+		flag_group.position = Vector3(x_pos, 0, -8)
+		add_child(flag_group)
+		_register_bg(flag_group, -8)
+
+		# Flagpole
+		var pole: MeshInstance3D = MeshInstance3D.new()
+		var pole_mesh: CylinderMesh = CylinderMesh.new()
+		pole_mesh.top_radius = 0.1
+		pole_mesh.bottom_radius = 0.15
+		pole_mesh.height = 10.0
+		var pole_mat: StandardMaterial3D = StandardMaterial3D.new()
+		pole_mat.albedo_color = Color(0.8, 0.8, 0.8)
+		pole_mesh.material = pole_mat
+		pole.mesh = pole_mesh
+		pole.position.y = 5.0
+		flag_group.add_child(pole)
+
+		# The Flag itself
+		var flag: MeshInstance3D = MeshInstance3D.new()
+		var flag_mesh: QuadMesh = QuadMesh.new()
+		flag_mesh.size = Vector2(3.0, 2.0)
+		
+		var flag_mat: StandardMaterial3D = StandardMaterial3D.new()
+		var tex: Texture2D = load("res://Quốc kỳ Việt Nam.png")
+		flag_mat.albedo_texture = tex
+		flag_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		flag_mesh.material = flag_mat
+		
+		flag.mesh = flag_mesh
+		flag.position = Vector3(1.6, 8.5, 0)
+		flag_group.add_child(flag)
 
 
 # ==============================================================
@@ -325,11 +349,14 @@ func _create_clouds() -> void:
 func _process(delta: float) -> void:
 	if state != GameState.PLAYING:
 		return
+	
 	for entry: Dictionary in _bg_elements:
 		var node: Node3D = entry["node"]
 		if not is_instance_valid(node):
 			continue
 		node.position.x -= entry["speed"] * delta
+		
+		# Wrap background elements far off-screen to prevent flickering/popping
 		if node.position.x < BG_LEFT_LIMIT:
 			node.position.x += BG_WRAP_WIDTH
 
@@ -343,50 +370,64 @@ func _setup_ui() -> void:
 	canvas.name = "UI"
 	add_child(canvas)
 
-	# --- Score (top center, anchored) ---
+	# Shared StyleBox for transparent containers
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.45) # Semi-transparent black
+	style.set_corner_radius_all(15)
+	style.content_margin_left = 20
+	style.content_margin_right = 20
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+
+	# --- Score Panel ---
+	score_panel = PanelContainer.new()
+	score_panel.add_theme_stylebox_override("panel", style)
+	score_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	score_panel.offset_top = 20
+	score_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	score_panel.visible = false
+	canvas.add_child(score_panel)
+
 	score_label = Label.new()
 	score_label.text = "0"
 	score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	score_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	score_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	score_label.offset_top = 20
-	score_label.offset_bottom = 100
-	score_label.add_theme_font_size_override("font_size", 72)
+	score_label.add_theme_font_size_override("font_size", 64)
 	score_label.add_theme_color_override("font_color", Color.WHITE)
-	score_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
-	score_label.add_theme_constant_override("shadow_offset_x", 3)
-	score_label.add_theme_constant_override("shadow_offset_y", 3)
-	score_label.visible = false
-	canvas.add_child(score_label)
+	score_panel.add_child(score_label)
 
-	# --- Start message (full-screen centered) ---
+	# --- Message Panel ---
+	message_panel = PanelContainer.new()
+	message_panel.add_theme_stylebox_override("panel", style)
+	message_panel.set_anchors_preset(Control.PRESET_CENTER)
+	message_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	message_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	canvas.add_child(message_panel)
+
 	message_label = Label.new()
 	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	message_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	message_label.add_theme_font_size_override("font_size", 42)
+	message_label.add_theme_font_size_override("font_size", 32)
 	message_label.add_theme_color_override("font_color", Color.WHITE)
-	message_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
-	message_label.add_theme_constant_override("shadow_offset_x", 2)
-	message_label.add_theme_constant_override("shadow_offset_y", 2)
-	canvas.add_child(message_label)
+	message_panel.add_child(message_label)
 
-	# --- Game-over panel (full-screen anchored, centered) ---
+	# --- Game Over Panel ---
+	game_over_panel = PanelContainer.new()
+	game_over_panel.add_theme_stylebox_override("panel", style)
+	game_over_panel.set_anchors_preset(Control.PRESET_CENTER)
+	game_over_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	game_over_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	game_over_panel.visible = false
+	canvas.add_child(game_over_panel)
+
 	game_over_container = VBoxContainer.new()
-	game_over_container.set_anchors_preset(Control.PRESET_FULL_RECT)
 	game_over_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	game_over_container.visible = false
-	canvas.add_child(game_over_container)
+	game_over_panel.add_child(game_over_container)
 
 	var go_label: Label = Label.new()
 	go_label.text = "KẾT THÚC"
 	go_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	go_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	go_label.add_theme_font_size_override("font_size", 52)
 	go_label.add_theme_color_override("font_color", Color(1, 0.3, 0.3))
-	go_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
-	go_label.add_theme_constant_override("shadow_offset_x", 2)
-	go_label.add_theme_constant_override("shadow_offset_y", 2)
 	game_over_container.add_child(go_label)
 
 	var spacer1: Control = Control.new()
@@ -396,7 +437,6 @@ func _setup_ui() -> void:
 	var score_disp: Label = Label.new()
 	score_disp.name = "ScoreDisplay"
 	score_disp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	score_disp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	score_disp.add_theme_font_size_override("font_size", 36)
 	score_disp.add_theme_color_override("font_color", Color.WHITE)
 	game_over_container.add_child(score_disp)
@@ -404,7 +444,6 @@ func _setup_ui() -> void:
 	var best_disp: Label = Label.new()
 	best_disp.name = "BestDisplay"
 	best_disp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	best_disp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	best_disp.add_theme_font_size_override("font_size", 30)
 	best_disp.add_theme_color_override("font_color", Color(1, 0.84, 0))
 	game_over_container.add_child(best_disp)
@@ -416,7 +455,6 @@ func _setup_ui() -> void:
 	var restart_lbl: Label = Label.new()
 	restart_lbl.text = "Nhấn chuột hoặc Space\nđể chơi lại"
 	restart_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	restart_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	restart_lbl.add_theme_font_size_override("font_size", 28)
 	restart_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 0.85))
 	game_over_container.add_child(restart_lbl)
@@ -459,17 +497,17 @@ func _is_action_event(event: InputEvent) -> bool:
 
 func _show_ready_screen() -> void:
 	message_label.text = "Nhấn chuột hoặc phím Space để bắt đầu"
-	message_label.visible = true
-	score_label.visible = false
-	game_over_container.visible = false
+	message_panel.visible = true
+	score_panel.visible = false
+	game_over_panel.visible = false
 
 
 func _start_game() -> void:
 	state = GameState.PLAYING
 	score = 0
 	score_label.text = "0"
-	score_label.visible = true
-	message_label.visible = false
+	score_panel.visible = true
+	message_panel.visible = false
 	bird.start()
 	spawn_timer.start()
 	sound.play_bgm()
@@ -516,8 +554,8 @@ func _on_bird_died() -> void:
 
 	await get_tree().create_timer(0.6).timeout
 
-	score_label.visible = false
-	game_over_container.visible = true
+	score_panel.visible = false
+	game_over_panel.visible = true
 	game_over_container.get_node("ScoreDisplay").text = "Điểm: " + str(score)
 	game_over_container.get_node("BestDisplay").text = "Kỷ lục: " + str(best_score)
 

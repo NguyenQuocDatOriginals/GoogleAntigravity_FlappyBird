@@ -10,6 +10,10 @@ const ROTATION_LERP_SPEED: float = 4.0
 var is_alive: bool = true
 var can_flap: bool = false
 
+var wing_l: MeshInstance3D = null
+var wing_r: MeshInstance3D = null
+var flap_time: float = 0.0
+
 
 func _ready() -> void:
 	collision_layer = 1
@@ -18,6 +22,7 @@ func _ready() -> void:
 	_create_body()
 	_create_beak()
 	_create_eye()
+	_create_wings()
 	_create_collision()
 
 
@@ -81,11 +86,36 @@ func _create_eye() -> void:
 	add_child(pupil)
 
 
+func _create_wings() -> void:
+	var wing_mat: StandardMaterial3D = StandardMaterial3D.new()
+	wing_mat.albedo_color = Color(1.0, 0.55, 0.0) # Orange
+	wing_mat.roughness = 0.5
+
+	var wing_mesh: BoxMesh = BoxMesh.new()
+	wing_mesh.size = Vector3(0.35, 0.04, 0.45)
+	wing_mesh.material = wing_mat
+
+	wing_l = MeshInstance3D.new()
+	wing_l.mesh = wing_mesh
+	wing_l.position = Vector3(-0.05, 0.05, 0.35)
+	add_child(wing_l)
+
+	wing_r = MeshInstance3D.new()
+	wing_r.mesh = wing_mesh
+	wing_r.position = Vector3(-0.05, 0.05, -0.35)
+	add_child(wing_r)
+
+
 func _create_collision() -> void:
 	var col: CollisionShape3D = CollisionShape3D.new()
-	var shape: SphereShape3D = SphereShape3D.new()
-	shape.radius = 0.28
+	var shape: CapsuleShape3D = CapsuleShape3D.new()
+	shape.radius = 0.30
+	shape.height = 0.85
 	col.shape = shape
+	
+	# Rotate and position to cover body + beak
+	col.rotation_degrees.z = 90
+	col.position.x = 0.1 # Shift slightly forward
 	add_child(col)
 
 
@@ -105,6 +135,12 @@ func _physics_process(delta: float) -> void:
 
 	var target_rot: float = clampf(velocity.y * 0.08, -1.2, 0.5)
 	rotation.z = lerp(rotation.z, target_rot, delta * ROTATION_LERP_SPEED)
+
+	# Wing flapping animation
+	flap_time += delta * (25.0 if velocity.y > 0 else 12.0)
+	var flap_angle: float = sin(flap_time) * 0.7
+	wing_l.rotation.x = flap_angle
+	wing_r.rotation.x = -flap_angle
 
 	move_and_slide()
 
